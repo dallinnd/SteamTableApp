@@ -292,16 +292,20 @@
     <py-config>
         packages = ["pyXSteam"]
     </py-config>
-
-    <script type="py">
+    
+        <script type="py">
         from pyXSteam.XSteam import XSteam
         from pyscript import document, window
 
         # Initialize Steam Table
+        # UNIT_SYSTEM_BARE uses:
+        # Pressure: MPa
+        # Temperature: Kelvin
+        # Energy/Enthalpy: kJ/kg (This was the catch!)
+        # Specific Volume: m³/kg
         steamTable = XSteam(XSteam.UNIT_SYSTEM_BARE)
 
-        # Global variable to store specific volume (v) from the first calculation
-        # Initialized to None
+        # Global variable to store specific volume (v)
         state_v = None 
 
         # --- Helper: Converters ---
@@ -341,22 +345,22 @@
                 t_unit = document.getElementById("temp_unit").value
                 p_unit = document.getElementById("press_unit").value
 
-                # Convert
+                # Convert Inputs to Library Standard (K and MPa)
                 t_k = to_kelvin(t_in, t_unit)
                 p_mpa = to_mpa(p_in, p_unit)
 
-                # PyXSteam Calcs
-                # Note: BARE units output J/kg, m3/kg, W/mK etc.
-                # We divide Enthalpy/Energy by 1000 to get kJ/kg for display
-                h = steamTable.h_pt(p_mpa, t_k) / 1000.0 
+                # PyXSteam Calculations
+                # FIX: Removed "/ 1000.0". 
+                # The library returns h, u, s in kJ/kg and kJ/(kg·K) natively.
+                h = steamTable.h_pt(p_mpa, t_k) 
                 v = steamTable.v_pt(p_mpa, t_k)
-                u = steamTable.u_pt(p_mpa, t_k) / 1000.0
-                s = steamTable.s_pt(p_mpa, t_k) / 1000.0
+                u = steamTable.u_pt(p_mpa, t_k)
+                s = steamTable.s_pt(p_mpa, t_k)
 
-                # Store v globally for the next section (keep raw SI value: m3/kg)
+                # Store v globally for Flow calc (v is m³/kg)
                 state_v = v
 
-                # Display
+                # Display Results
                 document.getElementById("res_h").innerText = f"{h:.4f}"
                 document.getElementById("res_v").innerText = f"{v:.6f}"
                 document.getElementById("res_u").innerText = f"{u:.4f}"
@@ -383,18 +387,15 @@
                 mdot_kgs = mdot_to_kgs(mdot_in, mdot_unit)
 
                 # 3. Determine Mode (Velocity or Area)
-                mode = window.currentFlowMode # accessing JS variable
+                mode = window.currentFlowMode 
                 
                 res_metric = 0.0
                 res_imp = 0.0
                 lbl_met = ""
                 lbl_imp = ""
 
-                # EQUATION: m_dot * v = u * Ac
-
                 if mode == 'vel':
                     # Solving for VELOCITY (u)
-                    # Need Area Input
                     area_in = float(document.getElementById("area_input").value)
                     area_unit = document.getElementById("area_unit_in").value
                     area_m2 = area_to_m2(area_in, area_unit)
@@ -413,7 +414,6 @@
 
                 else:
                     # Solving for AREA (Ac)
-                    # Need Velocity Input
                     vel_in = float(document.getElementById("vel_input").value)
                     vel_unit = document.getElementById("vel_unit_in").value
                     vel_ms = vel_to_ms(vel_in, vel_unit)
@@ -440,8 +440,8 @@
             except Exception as e:
                  document.getElementById("error-flow").innerText = "Check flow inputs."
                  print(e)
-
-    </script>
+        </script>
+    
     
     <script>
         if ('serviceWorker' in navigator) {
